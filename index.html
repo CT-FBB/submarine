@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SJC2 — Southeast Asia–Japan Cable 2 | 3D Submarine Cable Map</title>
+<meta name="description" content="Interactive 3D globe visualization of the SJC2 submarine cable system connecting 9 countries across Asia. 10,500 km, 144 Tbps capacity.">
+<meta property="og:title" content="SJC2 Submarine Cable — 3D Globe">
+<meta property="og:description" content="Interactive 3D visualization of the Southeast Asia–Japan Cable 2 submarine cable system">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌏</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000508;color:#fff;font-family:'SF Pro Display',-apple-system,'Segoe UI',system-ui,sans-serif}
+canvas#globe{display:block;position:fixed;inset:0;cursor:grab}
+canvas#globe:active{cursor:grabbing}
+
+/* ─── HUD ─── */
+.hud{position:fixed;inset:0;pointer-events:none;z-index:10}
+
+.hud-title{position:absolute;top:24px;left:50%;transform:translateX(-50%);text-align:center}
+.hud-title h1{font-size:clamp(22px,4vw,36px);font-weight:800;letter-spacing:6px;text-transform:uppercase;background:linear-gradient(90deg,#00d4ff,#00ff88,#00d4ff);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 3s ease-in-out infinite}
+.hud-title p{font-size:clamp(10px,1.5vw,13px);color:rgba(0,212,255,.55);letter-spacing:5px;margin-top:3px}
+@keyframes shimmer{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+.hud-stats{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:clamp(14px,3vw,36px);background:rgba(0,18,36,.75);border:1px solid rgba(0,212,255,.18);border-radius:14px;padding:12px clamp(16px,3vw,32px);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.stat{text-align:center}
+.stat-value{font-size:clamp(15px,2.2vw,22px);font-weight:700;color:#00d4ff;font-variant-numeric:tabular-nums}
+.stat-label{font-size:clamp(8px,1vw,10px);color:rgba(255,255,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
+
+.hud-legend{position:absolute;top:24px;right:24px;background:rgba(0,18,36,.6);border:1px solid rgba(0,212,255,.12);border-radius:10px;padding:12px 16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.hud-legend h3{color:rgba(0,212,255,.7);font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;font-weight:600}
+.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:5px;color:rgba(255,255,255,.55);font-size:11px}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+.hud-info{position:absolute;top:24px;left:24px;background:rgba(0,18,36,.6);border:1px solid rgba(0,212,255,.12);border-radius:10px;padding:12px 16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);max-width:220px}
+.hud-info h3{color:rgba(0,212,255,.7);font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;font-weight:600}
+.hud-info .info-row{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.5);margin-bottom:3px}
+.hud-info .info-row span:last-child{color:rgba(255,255,255,.8);font-weight:500}
+
+.tooltip{position:fixed;background:rgba(0,18,36,.92);border:1px solid rgba(0,212,255,.45);border-radius:10px;padding:10px 16px;font-size:12px;color:#00d4ff;pointer-events:none;z-index:100;display:none;backdrop-filter:blur(10px);white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,.5)}
+.tooltip .tt-name{font-weight:700;font-size:13px;margin-bottom:2px}
+.tooltip .tt-member{color:rgba(255,255,255,.5);font-size:11px}
+
+.controls-hint{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);font-size:10px;color:rgba(255,255,255,.2);letter-spacing:1px;transition:opacity .5s}
+
+/* mobile */
+@media(max-width:640px){
+  .hud-legend,.hud-info{display:none}
+  .hud-stats{gap:10px;padding:10px 14px}
+  .controls-hint{bottom:70px;font-size:9px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="globe"></canvas>
+
+<div class="hud">
+  <div class="hud-title">
+    <h1>SJC2</h1>
+    <p>Southeast Asia — Japan Cable 2</p>
+  </div>
+
+  <div class="hud-info">
+    <h3>System Profile</h3>
+    <div class="info-row"><span>Supplier</span><span>NEC Corporation</span></div>
+    <div class="info-row"><span>RFS</span><span>July 2025</span></div>
+    <div class="info-row"><span>Technology</span><span>DWDM · 400G</span></div>
+    <div class="info-row"><span>Fiber Pairs</span><span>Up to 8 FPs</span></div>
+    <div class="info-row"><span>Per FP</span><span>~18 Tbps</span></div>
+  </div>
+
+  <div class="hud-legend">
+    <h3>Legend</h3>
+    <div class="legend-item"><div class="legend-dot" style="background:#00ff88"></div>Landing Station</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00d4ff"></div>Main Trunk</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ff6b35"></div>Branch Cable</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ffdd00"></div>Data Flow</div>
+  </div>
+
+  <div class="hud-stats">
+    <div class="stat"><div class="stat-value" id="sv-len">0</div><div class="stat-label">km length</div></div>
+    <div class="stat"><div class="stat-value" id="sv-cap">0</div><div class="stat-label">Tbps</div></div>
+    <div class="stat"><div class="stat-value" id="sv-fp">0</div><div class="stat-label">fiber pairs</div></div>
+    <div class="stat"><div class="stat-value" id="sv-lp">0</div><div class="stat-label">landings</div></div>
+    <div class="stat"><div class="stat-value" id="sv-co">0</div><div class="stat-label">countries</div></div>
+  </div>
+
+  <div class="controls-hint" id="hint">🖱 Drag to rotate · Scroll to zoom · Click station for details</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+/* ============================================================
+   SJC2 Submarine Cable — Interactive 3D Globe
+   Pure Canvas / No dependencies
+   ============================================================ */
+
+// ── Data ────────────────────────────────────────────────────
+const STATIONS = [
+  { name:"Singapore",     flag:"🇸🇬", lat:1.3521,   lon:103.8198, member:"Singtel",            cat:"trunk" },
+  { name:"Songkhla",      flag:"🇹🇭", lat:7.1896,   lon:100.5945, member:"True Corporation",    cat:"branch" },
+  { name:"Sihanoukville", flag:"🇰🇭", lat:10.6093,  lon:103.5228, member:"Chuan Wei / DHT",     cat:"branch" },
+  { name:"Vũng Tàu",      flag:"🇻🇳", lat:10.346,   lon:107.0843, member:"VNPT International",  cat:"branch" },
+  { name:"Hong Kong",     flag:"🇭🇰", lat:22.3193,  lon:114.1694, member:"China Mobile Intl",   cat:"trunk" },
+  { name:"Tamsui",        flag:"🇹🇼", lat:25.1697,  lon:121.4416, member:"Chunghwa Telecom",    cat:"trunk" },
+  { name:"Fangshan",      flag:"🇹🇼", lat:22.2375,  lon:120.6539, member:"Chunghwa Telecom",    cat:"branch" },
+  { name:"Shantou",       flag:"🇨🇳", lat:23.354,   lon:116.6819, member:"China Mobile Intl",   cat:"branch" },
+  { name:"Busan",         flag:"🇰🇷", lat:35.1796,  lon:129.0756, member:"SK Broadband",        cat:"trunk" },
+  { name:"Maruyama",      flag:"🇯🇵", lat:33.4734,  lon:135.754,  member:"KDDI",                cat:"trunk" },
+];
+
+const CABLES = [
+  // Main trunk (south to north)
+  { from:0, to:4, type:"trunk" },  // Singapore → Hong Kong
+  { from:4, to:5, type:"trunk" },  // Hong Kong → Tamsui
+  { from:5, to:8, type:"trunk" },  // Tamsui → Busan
+  { from:8, to:9, type:"trunk" },  // Busan → Japan
+  // Branches
+  { from:0, to:1, type:"branch" }, // → Songkhla
+  { from:0, to:2, type:"branch" }, // → Sihanoukville
+  { from:0, to:3, type:"branch" }, // → Vũng Tàu
+  { from:4, to:6, type:"branch" }, // → Fangshan
+  { from:4, to:7, type:"branch" }, // → Shantou
+];
+
+const CONSORTIUM = [
+  "Singtel","China Mobile Intl","Meta (Facebook)","KDDI","Chunghwa Telecom",
+  "SK Broadband","VNPT","Telin","True Corporation","Donghwa Telecom"
+];
+
+// Simplified Asian coastline polygons [lat, lon]
+const COASTS = [
+  // Japan
+  [[45.5,141.9],[43.4,145.5],[42,144.4],[41.8,140.7],[39.7,140],[38.3,141.6],[36,140.5],[35.3,139.7],[34.7,137],[33.5,135.8],[33.9,131],[32.7,131.7],[31.4,131.1],[33.2,129.7],[35.1,132],[35.5,134.2],[36.2,136.1],[37,137],[37.5,138.8],[39.9,139.9]],
+  // Korea
+  [[38.6,128.3],[37.5,129.4],[35.1,129.1],[34.7,128.4],[35,126.5],[36,126.3],[37.7,126.6],[38.3,128],[38.6,128.3]],
+  // China coast
+  [[40,124.3],[39,121.8],[37.5,122.1],[36,120.3],[35,119.4],[32,121.5],[30.6,122.1],[28.2,121.6],[26.1,119.9],[24.5,118.1],[23.5,117.1],[22.5,114.1],[21.5,110.5],[21,109.5],[20,110.4],[18.2,109.5],[18.2,108.7],[19.2,108.7],[20,110.3]],
+  // Taiwan
+  [[25.3,121.5],[24.5,121.8],[23,121.3],[22,120.7],[21.9,120.9],[23,120.3],[25,121],[25.3,121.5]],
+  // Vietnam
+  [[21.5,107.9],[20.4,106.8],[19.3,105.8],[18.1,106.2],[16.5,107.6],[15.5,108.5],[14,109.2],[12.2,109.2],[10.4,107.2],[8.6,104.8]],
+  // Thai-Malay peninsula
+  [[13.5,100.6],[11,99.8],[9.5,99.2],[8,98.4],[7,100.5],[6.2,102.1],[4.2,103.4],[2.5,104.2],[1.4,104],[1.3,103.7]],
+  // Cambodia coast
+  [[10.5,103.5],[10.8,103.1],[11.5,102.9],[10.5,103.5]],
+  // Philippines (west)
+  [[18.5,120.5],[16,120],[14.6,120],[13.8,121],[12.5,121.5],[10,124],[9,126],[7,126],[6,125.5],[7,124],[9.8,124],[10.5,122],[11.8,120],[14.5,119.8],[16.5,120.2],[18.5,120.5]],
+  // Borneo north
+  [[7,116.8],[6,116.1],[5,115.5],[4.2,114.8],[2.1,111.3],[1.5,110.2],[1.6,109.6],[2,109.7],[2.5,111.3],[4,113.8],[5,115],[6,116],[7,116.8]],
+  // Sumatra (north)
+  [[5.9,95.3],[3.7,95.4],[2,99],[0,100.5],[-1,101.7],[-2.5,104.5],[-3,106],[1,105.5],[2.5,105],[4,104.5],[5,98.5],[5.9,95.3]],
+];
+
+// ── Canvas & State ──────────────────────────────────────────
+const canvas = document.getElementById("globe");
+const ctx = canvas.getContext("2d");
+const tooltip = document.getElementById("tooltip");
+
+let W, H, R;
+let rotX = -0.3, rotY = 2.05;        // initial view: centered on Asia
+let autoRotate = true;
+let dragging = false;
+let lastMouse = {x:0,y:0};
+let zoom = 1.0;
+let time = 0;
+let stars = [];
+let dpr = Math.min(devicePixelRatio, 2);
+
+function resize() {
+  W = innerWidth; H = innerHeight;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  R = Math.min(W,H) * 0.33 * zoom;
+}
+addEventListener("resize", resize);
+
+// Stars
+(function initStars(){
+  for(let i=0;i<800;i++) stars.push({
+    x:Math.random()*2-1, y:Math.random()*2-1,
+    s:Math.random()*1.4+.2, tw:Math.random()*6.28
+  });
+})();
+
+// ── 3D Math ─────────────────────────────────────────────────
+function ll2xyz(lat,lon){
+  const p=(90-lat)*Math.PI/180, t=(lon+180)*Math.PI/180;
+  return { x:-Math.sin(p)*Math.cos(t), y:Math.cos(p), z:Math.sin(p)*Math.sin(t) };
+}
+function rot(p){
+  let x1=p.x*Math.cos(rotY)-p.z*Math.sin(rotY);
+  let z1=p.x*Math.sin(rotY)+p.z*Math.cos(rotY);
+  let y2=p.y*Math.cos(rotX)-z1*Math.sin(rotX);
+  let z2=p.y*Math.sin(rotX)+z1*Math.cos(rotX);
+  return {x:x1,y:y2,z:z2};
+}
+function proj(p){
+  const r=rot(p), pe=4.5, sc=pe/(pe+r.z);
+  return { x:W/2+r.x*R*sc, y:H/2-r.y*R*sc, z:r.z, sc };
+}
+
+// ── Draw ────────────────────────────────────────────────────
+function drawStars(){
+  for(const s of stars){
+    const a=.2+.35*Math.sin(time*1.5+s.tw);
+    ctx.fillStyle=`rgba(180,215,255,${a})`;
+    ctx.fillRect(s.x*W*.55+W/2, s.y*H*.55+H/2, s.s, s.s);
+  }
+}
+
+function drawGlobe(){
+  // Atmosphere
+  let g=ctx.createRadialGradient(W/2,H/2,R*.85,W/2,H/2,R*1.55);
+  g.addColorStop(0,"rgba(0,80,160,.1)");
+  g.addColorStop(.5,"rgba(0,120,220,.03)");
+  g.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // Body
+  g=ctx.createRadialGradient(W/2-R*.3,H/2-R*.3,R*.02, W/2,H/2,R);
+  g.addColorStop(0,"rgba(12,38,58,.97)");
+  g.addColorStop(.65,"rgba(6,22,42,.97)");
+  g.addColorStop(1,"rgba(2,10,22,.97)");
+  ctx.beginPath(); ctx.arc(W/2,H/2,R,0,6.2832); ctx.fillStyle=g; ctx.fill();
+
+  // Rim
+  ctx.beginPath(); ctx.arc(W/2,H/2,R,0,6.2832);
+  ctx.strokeStyle="rgba(0,150,255,.12)"; ctx.lineWidth=1.5; ctx.stroke();
+}
+
+function drawGrid(){
+  ctx.strokeStyle="rgba(0,140,255,.05)"; ctx.lineWidth=.5;
+  for(let lat=-80;lat<=80;lat+=20){
+    ctx.beginPath(); let s=false;
+    for(let lon=-180;lon<=180;lon+=4){
+      const p=ll2xyz(lat,lon), r=rot(p), pr=proj(p);
+      if(r.z>-.1){ if(!s){ctx.moveTo(pr.x,pr.y);s=true}else ctx.lineTo(pr.x,pr.y) }else s=false;
+    } ctx.stroke();
+  }
+  for(let lon=-180;lon<180;lon+=30){
+    ctx.beginPath(); let s=false;
+    for(let lat=-90;lat<=90;lat+=4){
+      const p=ll2xyz(lat,lon), r=rot(p), pr=proj(p);
+      if(r.z>-.1){ if(!s){ctx.moveTo(pr.x,pr.y);s=true}else ctx.lineTo(pr.x,pr.y) }else s=false;
+    } ctx.stroke();
+  }
+}
+
+function drawCoasts(){
+  ctx.lineWidth=.8;
+  for(const c of COASTS){
+    ctx.beginPath(); let s=false, pv=false;
+    // fill
+    const fillPts=[];
+    for(const v of c){
+      const p=ll2xyz(v[0],v[1]), r=rot(p), pr=proj(p);
+      if(r.z>-.05){
+        fillPts.push(pr);
+        if(!s||!pv){ctx.moveTo(pr.x,pr.y);s=true}else ctx.lineTo(pr.x,pr.y);
+      } pv=r.z>-.05;
+    }
+    // subtle fill
+    if(fillPts.length>2){
+      ctx.fillStyle="rgba(0,255,136,.03)"; ctx.fill();
+    }
+    ctx.strokeStyle="rgba(0,255,136,.2)"; ctx.stroke();
+  }
+}
+
+function arcPts(a,b,n,h){
+  const p1=ll2xyz(a.lat,a.lon), p2=ll2xyz(b.lat,b.lon);
+  const dot=p1.x*p2.x+p1.y*p2.y+p1.z*p2.z;
+  const om=Math.acos(Math.max(-1,Math.min(1,dot))), sO=Math.sin(om);
+  const pts=[];
+  for(let i=0;i<=n;i++){
+    const t=i/n; let x,y,z;
+    if(sO<.001){x=p1.x*(1-t)+p2.x*t;y=p1.y*(1-t)+p2.y*t;z=p1.z*(1-t)+p2.z*t}
+    else{const a2=Math.sin((1-t)*om)/sO,b2=Math.sin(t*om)/sO;x=a2*p1.x+b2*p2.x;y=a2*p1.y+b2*p2.y;z=a2*p1.z+b2*p2.z}
+    const lift=1+h*Math.sin(Math.PI*t), len=Math.sqrt(x*x+y*y+z*z);
+    pts.push({x:x/len*lift, y:y/len*lift, z:z/len*lift});
+  }
+  return pts;
+}
+
+function drawCables(){
+  for(const c of CABLES){
+    const a=STATIONS[c.from], b=STATIONS[c.to];
+    const isTrunk=c.type==="trunk";
+    const pts=arcPts(a,b,80, isTrunk?.055:.035);
+
+    // Glow pass
+    ctx.beginPath(); let s=false;
+    for(const pt of pts){
+      const r=rot(pt), pe=4.5, sc=pe/(pe+r.z), sx=W/2+r.x*R*sc, sy=H/2-r.y*R*sc;
+      if(r.z>-.25){ if(!s){ctx.moveTo(sx,sy);s=true}else ctx.lineTo(sx,sy) }else s=false;
+    }
+    ctx.shadowColor=isTrunk?"#00d4ff":"#ff6b35";
+    ctx.shadowBlur=isTrunk?14:8;
+    ctx.strokeStyle=isTrunk?"rgba(0,212,255,.15)":"rgba(255,107,53,.1)";
+    ctx.lineWidth=isTrunk?8:5;
+    ctx.stroke(); ctx.shadowBlur=0;
+
+    // Core line
+    ctx.beginPath(); s=false;
+    for(const pt of pts){
+      const r=rot(pt), pe=4.5, sc=pe/(pe+r.z), sx=W/2+r.x*R*sc, sy=H/2-r.y*R*sc;
+      if(r.z>-.25){ if(!s){ctx.moveTo(sx,sy);s=true}else ctx.lineTo(sx,sy) }else s=false;
+    }
+    ctx.strokeStyle=isTrunk?"rgba(0,212,255,.75)":"rgba(255,107,53,.65)";
+    ctx.lineWidth=isTrunk?2.5:1.6;
+    ctx.stroke();
+
+    // Data pulses
+    const nP=isTrunk?3:2, spd=isTrunk?.55:.7;
+    for(let p=0;p<nP;p++){
+      const t=((time*spd+p/nP)%1);
+      const idx=Math.floor(t*(pts.length-1)), pt=pts[idx], r=rot(pt);
+      if(r.z>-.15){
+        const pe=4.5,sc=pe/(pe+r.z),sx=W/2+r.x*R*sc,sy=H/2-r.y*R*sc;
+        const sz=(isTrunk?5:3.5)*sc;
+        const g=ctx.createRadialGradient(sx,sy,0,sx,sy,sz*4);
+        g.addColorStop(0,"rgba(255,221,0,.95)");
+        g.addColorStop(.25,"rgba(255,221,0,.45)");
+        g.addColorStop(1,"rgba(255,221,0,0)");
+        ctx.fillStyle=g;
+        ctx.fillRect(sx-sz*4,sy-sz*4,sz*8,sz*8);
+      }
+    }
+  }
+}
+
+function drawStations(){
+  const sps=[];
+  for(let i=0;i<STATIONS.length;i++){
+    const st=STATIONS[i], p=ll2xyz(st.lat,st.lon), r=rot(p), pr=proj(p);
+    if(r.z<.02) continue;
+
+    const pulse=Math.sin(time*3+i)*.3+.7;
+    const col= st.cat==="trunk"?"0,255,136":"255,107,53";
+
+    // Outer glow
+    const g=ctx.createRadialGradient(pr.x,pr.y,0, pr.x,pr.y, 22*pr.sc);
+    g.addColorStop(0,`rgba(${col},.7)`);
+    g.addColorStop(.25,`rgba(${col},.2)`);
+    g.addColorStop(1,`rgba(${col},0)`);
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(pr.x,pr.y,22*pr.sc*pulse,0,6.2832); ctx.fill();
+
+    // Core
+    ctx.beginPath(); ctx.arc(pr.x,pr.y,3.5*pr.sc,0,6.2832);
+    ctx.fillStyle="#fff"; ctx.fill();
+
+    // Ring
+    ctx.beginPath(); ctx.arc(pr.x,pr.y,(7+pulse*7)*pr.sc,0,6.2832);
+    const ra=Math.round(pulse*70);
+    ctx.strokeStyle=`rgba(${col},${ra/255})`;
+    ctx.lineWidth=1; ctx.stroke();
+
+    // Label
+    const fs=Math.max(10,Math.round(12*pr.sc));
+    ctx.font=`600 ${fs}px -apple-system,system-ui,sans-serif`;
+    const txt=`${st.flag} ${st.name}`;
+    const tw=ctx.measureText(txt).width;
+    const lx=pr.x+14*pr.sc, ly=pr.y;
+
+    // pill bg
+    const px=4, py=3;
+    ctx.fillStyle="rgba(0,14,28,.72)";
+    roundRect(ctx, lx-px, ly-fs+1-py, tw+px*2, fs+py*2, 5);
+    ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.88)";
+    ctx.fillText(txt,lx,ly);
+
+    sps.push({x:pr.x,y:pr.y,i,sc:pr.sc});
+  }
+  return sps;
+}
+
+function roundRect(c,x,y,w,h,r){
+  c.beginPath(); c.moveTo(x+r,y);
+  c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y);
+  c.closePath();
+}
+
+// ── Interaction ─────────────────────────────────────────────
+let mx=0,my=0;
+
+canvas.addEventListener("mousedown",e=>{
+  dragging=true; autoRotate=false;
+  lastMouse={x:e.clientX,y:e.clientY};
+});
+canvas.addEventListener("mousemove",e=>{
+  mx=e.clientX; my=e.clientY;
+  if(dragging){
+    rotY-=(e.clientX-lastMouse.x)*.005;
+    rotX+=(e.clientY-lastMouse.y)*.005;
+    rotX=Math.max(-1.4,Math.min(1.4,rotX));
+    lastMouse={x:e.clientX,y:e.clientY};
+  }
+});
+canvas.addEventListener("mouseup",()=>{
+  dragging=false; setTimeout(()=>{if(!dragging)autoRotate=true},4000);
+});
+canvas.addEventListener("wheel",e=>{
+  e.preventDefault();
+  zoom*=e.deltaY>0?.95:1.05;
+  zoom=Math.max(.45,Math.min(2.8,zoom));
+  R=Math.min(W,H)*.33*zoom;
+},{passive:false});
+
+// Touch
+canvas.addEventListener("touchstart",e=>{
+  e.preventDefault(); dragging=true; autoRotate=false;
+  const t=e.touches[0]; lastMouse={x:t.clientX,y:t.clientY};
+},{passive:false});
+canvas.addEventListener("touchmove",e=>{
+  e.preventDefault();
+  if(dragging&&e.touches.length===1){
+    const t=e.touches[0];
+    rotY-=(t.clientX-lastMouse.x)*.005;
+    rotX+=(t.clientY-lastMouse.y)*.005;
+    rotX=Math.max(-1.4,Math.min(1.4,rotX));
+    lastMouse={x:t.clientX,y:t.clientY};
+  }
+},{passive:false});
+canvas.addEventListener("touchend",()=>{
+  dragging=false; setTimeout(()=>{if(!dragging)autoRotate=true},4000);
+});
+
+// ── Animated counters on load ───────────────────────────────
+function animateCounters(){
+  const targets={len:10500,cap:144,fp:8,lp:11,co:9};
+  const els={len:document.getElementById("sv-len"),cap:document.getElementById("sv-cap"),
+    fp:document.getElementById("sv-fp"),lp:document.getElementById("sv-lp"),co:document.getElementById("sv-co")};
+  const dur=1800, start=performance.now();
+  function tick(now){
+    const p=Math.min((now-start)/dur,1), e=1-Math.pow(1-p,3); // easeOutCubic
+    els.len.textContent=Math.round(targets.len*e).toLocaleString();
+    els.cap.textContent=Math.round(targets.cap*e);
+    els.fp.textContent=Math.round(targets.fp*e);
+    els.lp.textContent=Math.round(targets.lp*e);
+    els.co.textContent=Math.round(targets.co*e);
+    if(p<1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+animateCounters();
+
+// Fade hint
+setTimeout(()=>{document.getElementById("hint").style.opacity="0"},8000);
+
+// ── Main Loop ───────────────────────────────────────────────
+function frame(){
+  time+=.007;
+  if(autoRotate) rotY-=.0018;
+
+  // Clear
+  ctx.fillStyle="#000508"; ctx.fillRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W/2,H/2,0, W/2,H/2,Math.max(W,H)*.65);
+  bg.addColorStop(0,"rgba(0,18,48,.25)"); bg.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  drawStars();
+  drawGlobe();
+  drawGrid();
+  drawCoasts();
+  drawCables();
+  const sps=drawStations();
+
+  // Tooltip
+  let found=false;
+  for(const sp of sps){
+    if((mx-sp.x)**2+(my-sp.y)**2<500){
+      const s=STATIONS[sp.i];
+      tooltip.innerHTML=`<div class="tt-name">${s.flag} ${s.name}</div><div class="tt-member">${s.member}</div>`;
+      tooltip.style.display="block";
+      tooltip.style.left=(mx+18)+"px";
+      tooltip.style.top=(my-14)+"px";
+      found=true; break;
+    }
+  }
+  if(!found) tooltip.style.display="none";
+
+  requestAnimationFrame(frame);
+}
+
+resize();
+frame();
+</script>
+</body>
+</html>
