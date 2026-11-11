@@ -162,7 +162,7 @@ const tooltip = document.getElementById("tooltip");
 
 let W, H, R;
 let rotX = -0.3, rotY = 2.05;        // initial view: centered on Asia
-let autoRotate = true;
+let autoRotate = false;
 let dragging = false;
 let lastMouse = {x:0,y:0};
 let zoom = 1.0;
@@ -409,12 +409,12 @@ canvas.addEventListener("mousemove",e=>{
   }
 });
 canvas.addEventListener("mouseup",()=>{
-  dragging=false; setTimeout(()=>{if(!dragging)autoRotate=true},4000);
+  dragging=false;
 });
 canvas.addEventListener("wheel",e=>{
   e.preventDefault();
   zoom*=e.deltaY>0?.95:1.05;
-  zoom=Math.max(.45,Math.min(2.8,zoom));
+  zoom=Math.max(.3,Math.min(8,zoom));
   R=Math.min(W,H)*.33*zoom;
 },{passive:false});
 
@@ -434,7 +434,7 @@ canvas.addEventListener("touchmove",e=>{
   }
 },{passive:false});
 canvas.addEventListener("touchend",()=>{
-  dragging=false; setTimeout(()=>{if(!dragging)autoRotate=true},4000);
+  dragging=false;
 });
 
 // ── Animated counters on load ───────────────────────────────
